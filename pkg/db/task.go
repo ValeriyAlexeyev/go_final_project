@@ -192,3 +192,61 @@ func UpdateTask(task *Task) error {
 
 	return nil
 }
+func DeleteTask(id string) error {
+	if DB == nil {
+		return fmt.Errorf("database is not initialized")
+	}
+
+	if strings.TrimSpace(id) == "" {
+		return fmt.Errorf("не указан идентификатор")
+	}
+
+	result, err := DB.Exec(
+		`DELETE FROM scheduler WHERE id = ?`,
+		id,
+	)
+	if err != nil {
+		return fmt.Errorf("delete task: %w", err)
+	}
+
+	count, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("get affected rows: %w", err)
+	}
+
+	if count == 0 {
+		return fmt.Errorf("задача не найдена")
+	}
+
+	return nil
+}
+
+func UpdateDate(nextDate, id string) error {
+	if DB == nil {
+		return fmt.Errorf("database is not initialized")
+	}
+
+	if strings.TrimSpace(id) == "" {
+		return fmt.Errorf("не указан идентификатор")
+	}
+
+	result, err := DB.Exec(
+		`UPDATE scheduler SET date = ? WHERE id = ?`,
+		nextDate,
+		id,
+	)
+	if err != nil {
+		return fmt.Errorf("update task date: %w", err)
+	}
+
+	count, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("get affected rows: %w", err)
+	}
+
+	if count == 0 {
+		return fmt.Errorf("задача не найдена")
+	}
+
+	return nil
+}
