@@ -120,3 +120,75 @@ func Tasks(limit int, search string) ([]*Task, error) {
 
 	return tasks, nil
 }
+func GetTask(id string) (*Task, error) {
+	if DB == nil {
+		return nil, fmt.Errorf("database is not initialized")
+	}
+
+	if id == "" {
+		return nil, fmt.Errorf("не указан идентификатор")
+	}
+
+	task := &Task{}
+
+	query := `
+		SELECT id, date, title, comment, repeat
+		FROM scheduler
+		WHERE id = ?
+	`
+
+	err := DB.QueryRow(query, id).Scan(
+		&task.ID,
+		&task.Date,
+		&task.Title,
+		&task.Comment,
+		&task.Repeat,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("задача не найдена")
+		}
+		return nil, fmt.Errorf("get task: %w", err)
+	}
+
+	return task, nil
+}
+
+func UpdateTask(task *Task) error {
+	if DB == nil {
+		return fmt.Errorf("database is not initialized")
+	}
+
+	if task.ID == "" {
+		return fmt.Errorf("не указан идентификатор")
+	}
+
+	query := `
+		UPDATE scheduler
+		SET date = ?, title = ?, comment = ?, repeat = ?
+		WHERE id = ?
+	`
+
+	result, err := DB.Exec(
+		query,
+		task.Date,
+		task.Title,
+		task.Comment,
+		task.Repeat,
+		task.ID,
+	)
+	if err != nil {
+		return fmt.Errorf("update task: %w", err)
+	}
+
+	count, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("get affected rows: %w", err)
+	}
+
+	if count == 0 {
+		return fmt.Errorf("задача не найдена")
+	}
+
+	return nil
+}
