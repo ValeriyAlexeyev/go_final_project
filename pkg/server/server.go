@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+
+	"github.com/ValeriyAlexeyev/go_final_project/pkg/api"
 )
 
 const (
@@ -11,7 +13,6 @@ const (
 	webDir      = "./web"
 )
 
-// Run настраивает маршруты и запускает HTTP-сервер.
 func Run() error {
 	port := os.Getenv("TODO_PORT")
 	if port == "" {
@@ -20,9 +21,11 @@ func Run() error {
 
 	mux := http.NewServeMux()
 
-	// Раздача статических файлов из каталога web.
-	fileServer := http.FileServer(http.Dir(webDir))
-	mux.Handle("/", fileServer)
+	// Сначала регистрируем API.
+	api.Init(mux)
+
+	// Обработчик "/" должен регистрироваться после API.
+	mux.Handle("/", http.FileServer(http.Dir(webDir)))
 
 	address := ":" + port
 
