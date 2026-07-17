@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	"net/http"
+	"strings"
 )
 
 func taskHandler(w http.ResponseWriter, r *http.Request) {
@@ -22,12 +23,24 @@ func taskHandler(w http.ResponseWriter, r *http.Request) {
 	default:
 		w.Header().Set(
 			"Allow",
-			http.MethodGet+", "+
-				http.MethodPost+", "+
-				http.MethodPut+", "+
-				http.MethodDelete,
+			strings.Join(
+				[]string{
+					http.MethodGet,
+					http.MethodPost,
+					http.MethodPut,
+					http.MethodDelete,
+				},
+				", ",
+			),
 		)
 
-		writeError(w, fmt.Errorf("метод %s не поддерживается", r.Method))
+		writeError(
+			w,
+			http.StatusMethodNotAllowed,
+			fmt.Sprintf(
+				"метод %s не поддерживается",
+				r.Method,
+			),
+		)
 	}
 }
