@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -18,31 +19,65 @@ func addTaskHandler(w http.ResponseWriter, r *http.Request) {
 	var task db.Task
 
 	decoder := json.NewDecoder(r.Body)
+
 	if err := decoder.Decode(&task); err != nil {
-		writeError(w, fmt.Errorf("ошибка десериализации JSON: %w", err))
+		writeJSON(
+			w,
+			http.StatusBadRequest,
+			map[string]string{
+				"error": fmt.Sprintf(
+					"ошибка десериализации JSON: %v",
+					err,
+				),
+			},
+		)
 		return
 	}
 
 	task.Title = strings.TrimSpace(task.Title)
 	if task.Title == "" {
-		writeError(w, fmt.Errorf("не указан заголовок задачи"))
+		writeJSON(
+			w,
+			http.StatusBadRequest,
+			map[string]string{
+				"error": "не указан заголовок задачи",
+			},
+		)
 		return
 	}
 
 	if err := checkDate(&task); err != nil {
-		writeError(w, err)
+		writeJSON(
+			w,
+			http.StatusBadRequest,
+			map[string]string{
+				"error": err.Error(),
+			},
+		)
 		return
 	}
 
 	id, err := db.AddTask(&task)
 	if err != nil {
-		writeError(w, err)
+		log.Printf("ошибка при добавлении задачи: %v", err)
+
+		writeJSON(
+			w,
+			http.StatusInternalServerError,
+			map[string]string{
+				"error": "внутренняя ошибка сервера",
+			},
+		)
 		return
 	}
 
-	writeJSON(w, addTaskResponse{
-		ID: fmt.Sprintf("%d", id),
-	})
+	writeJSON(
+		w,
+		http.StatusCreated,
+		addTaskResponse{
+			ID: id,
+		},
+	)
 }
 
 func checkDate(task *db.Task) error {
@@ -66,7 +101,10 @@ func checkDate(task *db.Task) error {
 	if task.Repeat != "" {
 		next, err = NextDate(today, task.Date, task.Repeat)
 		if err != nil {
-			return fmt.Errorf("некорректное правило повторения: %w", err)
+			return fmt.Errorf(
+				"некорректное правило повторения: %w",
+				err,
+			)
 		}
 	}
 

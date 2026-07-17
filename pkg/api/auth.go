@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -32,20 +33,49 @@ type tokenPayload struct {
 func signInHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.Header().Set("Allow", http.MethodPost)
-		writeError(w, fmt.Errorf("метод %s не поддерживается", r.Method))
+
+		writeJSON(
+			w,
+			http.StatusMethodNotAllowed,
+			map[string]string{
+				"error": fmt.Sprintf(
+					"метод %s не поддерживается",
+					r.Method,
+				),
+			},
+		)
 		return
 	}
 
 	password := os.Getenv("TODO_PASSWORD")
 	if password == "" {
-		writeError(w, errors.New("пароль на сервере не установлен"))
+		log.Println("ошибка авторизации: переменная TODO_PASSWORD не установлена")
+
+		writeJSON(
+			w,
+			http.StatusInternalServerError,
+			map[string]string{
+				"error": "внутренняя ошибка сервера",
+			},
+		)
 		return
 	}
 
 	var request signInRequest
 
-	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-		writeError(w, fmt.Errorf("ошибка десериализации JSON: %w", err))
+	decoder := json.NewDecoder(r.Body)
+
+	if err := decoder.Decode(&request); err != nil {
+		writeJSON(
+			w,
+			http.StatusBadRequest,
+			map[string]string{
+				"error": fmt.Sprintf(
+					"ошибка десериализации JSON: %v",
+					err,
+				),
+			},
+		)
 		return
 	}
 
@@ -53,19 +83,37 @@ func signInHandler(w http.ResponseWriter, r *http.Request) {
 		[]byte(request.Password),
 		[]byte(password),
 	) != 1 {
-		writeError(w, errors.New("неверный пароль"))
+		writeJSON(
+			w,
+			http.StatusUnauthorized,
+			map[string]string{
+				"error": "неверный пароль",
+			},
+		)
 		return
 	}
 
 	token, err := createToken(password)
 	if err != nil {
-		writeError(w, err)
+		log.Printf("ошибка создания токена: %v", err)
+
+		writeJSON(
+			w,
+			http.StatusInternalServerError,
+			map[string]string{
+				"error": "внутренняя ошибка сервера",
+			},
+		)
 		return
 	}
 
-	writeJSON(w, signInResponse{
-		Token: token,
-	})
+	writeJSON(
+		w,
+		http.StatusOK,
+		signInResponse{
+			Token: token,
+		},
+	)
 }
 
 func auth(next http.HandlerFunc) http.HandlerFunc {
@@ -80,19 +128,25 @@ func auth(next http.HandlerFunc) http.HandlerFunc {
 
 		cookie, err := r.Cookie("token")
 		if err != nil || cookie.Value == "" {
-			http.Error(
+			writeJSON(
 				w,
-				"Authentication required",
 				http.StatusUnauthorized,
+				map[string]string{
+					"error": "требуется авторизация",
+				},
 			)
 			return
 		}
 
 		if err := validateToken(cookie.Value, password); err != nil {
-			http.Error(
+			log.Printf("ошибка проверки токена: %v", err)
+
+			writeJSON(
 				w,
-				"Authentication required",
 				http.StatusUnauthorized,
+				map[string]string{
+					"error": "требуется авторизация",
+				},
 			)
 			return
 		}
@@ -153,6 +207,7 @@ func validateToken(token, password string) error {
 	}
 
 	var payload tokenPayload
+
 	if err := json.Unmarshal(payloadJSON, &payload); err != nil {
 		return fmt.Errorf("unmarshal JWT payload: %w", err)
 	}
@@ -175,12 +230,16 @@ func validateToken(token, password string) error {
 
 func signJWT(unsignedToken, password string) string {
 	mac := hmac.New(sha256.New, []byte(password))
-	_, _ = mac.Write([]byte(unsignedToken))
+
+	if _, err := mac.Write([]byte(unsignedToken)); err != nil {
+		log.Printf("ошибка вычисления подписи JWT: %v", err)
+	}
 
 	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
 }
 
 func hashPassword(password string) string {
 	sum := sha256.Sum256([]byte(password))
+
 	return base64.RawURLEncoding.EncodeToString(sum[:])
 }
