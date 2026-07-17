@@ -1,7 +1,7 @@
 package api
 
 import (
-	"fmt"
+	"log"
 	"net/http"
 	"strings"
 
@@ -11,15 +11,29 @@ import (
 func getTaskHandler(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimSpace(r.URL.Query().Get("id"))
 	if id == "" {
-		writeError(w, fmt.Errorf("не указан идентификатор"))
+		writeError(
+			w,
+			http.StatusBadRequest,
+			"не указан идентификатор",
+		)
 		return
 	}
 
 	task, err := db.GetTask(id)
 	if err != nil {
-		writeError(w, err)
+		log.Printf("ошибка получения задачи %q: %v", id, err)
+
+		writeError(
+			w,
+			http.StatusInternalServerError,
+			"внутренняя ошибка сервера",
+		)
 		return
 	}
 
-	writeJSON(w, task)
+	writeJSON(
+		w,
+		http.StatusOK,
+		task,
+	)
 }

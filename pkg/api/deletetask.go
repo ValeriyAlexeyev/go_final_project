@@ -1,7 +1,7 @@
 package api
 
 import (
-	"fmt"
+	"log"
 	"net/http"
 	"strings"
 
@@ -11,14 +11,28 @@ import (
 func deleteTaskHandler(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimSpace(r.URL.Query().Get("id"))
 	if id == "" {
-		writeError(w, fmt.Errorf("не указан идентификатор"))
+		writeError(
+			w,
+			http.StatusBadRequest,
+			"не указан идентификатор",
+		)
 		return
 	}
 
 	if err := db.DeleteTask(id); err != nil {
-		writeError(w, err)
+		log.Printf("ошибка удаления задачи %q: %v", id, err)
+
+		writeError(
+			w,
+			http.StatusInternalServerError,
+			"внутренняя ошибка сервера",
+		)
 		return
 	}
 
-	writeJSON(w, map[string]any{})
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]any{},
+	)
 }
