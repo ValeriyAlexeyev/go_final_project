@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -75,7 +76,7 @@ func addTaskHandler(w http.ResponseWriter, r *http.Request) {
 		w,
 		http.StatusCreated,
 		addTaskResponse{
-			ID: id,
+			ID: strconv.FormatInt(id, 10),
 		},
 	)
 }
