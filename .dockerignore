@@ -1,0 +1,5 @@
+.git
+.gitignore
+scheduler.exe
+scheduler.db
+*.log
